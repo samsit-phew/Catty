@@ -20,6 +20,7 @@ pub struct PlayerState {
     pub config: Config,
     needs_redraw: bool,
     played_indices: Vec<usize>, // Track played songs in shuffle mode
+    pub show_help: bool,
 }
 
 impl PlayerState {
@@ -44,6 +45,7 @@ impl PlayerState {
             config,
             needs_redraw: true,
             played_indices: Vec::new(),
+            show_help: false,
         }
     }
 
@@ -237,5 +239,36 @@ impl PlayerState {
     pub fn get_current_track(&self) -> Option<&Track> {
         self.current_track_index
             .and_then(|i| self.queue.get(i))
+    }
+
+    /// Seek forward by 10 seconds
+    pub fn seek_forward(&mut self) {
+        let current = self.audio.get_elapsed_millis();
+        let new_pos = current + 10_000; // 10 seconds in milliseconds
+        self.audio.set_elapsed_millis(new_pos);
+    }
+
+    /// Seek backward by 10 seconds
+    pub fn seek_backward(&mut self) {
+        let current = self.audio.get_elapsed_millis();
+        let new_pos = current.saturating_sub(10_000); // 10 seconds in milliseconds
+        self.audio.set_elapsed_millis(new_pos);
+    }
+
+    /// Toggle help menu visibility
+    pub fn toggle_help(&mut self) {
+        self.show_help = !self.show_help;
+    }
+
+    /// Get elapsed time in seconds
+    pub fn get_elapsed_seconds(&self) -> f32 {
+        (self.audio.get_elapsed_millis() as f32) / 1000.0
+    }
+
+    /// Get total duration in seconds
+    pub fn get_duration_seconds(&self) -> f32 {
+        self.audio.get_duration()
+            .map(|d| d.as_secs() as f32 + d.subsec_millis() as f32 / 1000.0)
+            .unwrap_or(0.0)
     }
 }

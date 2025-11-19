@@ -107,6 +107,22 @@ async fn main() -> Result<()> {
                         player_state.increase_volume();
                         true
                     }
+                    KeyCode::Char(c) if matches_keybind(&config.keybinds.volume_down, c, key.modifiers) => {
+                        player_state.decrease_volume();
+                        true
+                    }
+                    KeyCode::Char(c) if matches_keybind(&config.keybinds.seek_forward, c, key.modifiers) => {
+                        player_state.seek_forward();
+                        true
+                    }
+                    KeyCode::Char(c) if matches_keybind(&config.keybinds.seek_backward, c, key.modifiers) => {
+                        player_state.seek_backward();
+                        true
+                    }
+                    KeyCode::Char(c) if matches_keybind(&config.keybinds.help, c, key.modifiers) => {
+                        player_state.toggle_help();
+                        true
+                    }
                     KeyCode::Char(c) if matches_keybind(&config.keybinds.clear, c, key.modifiers) => {
                         player_state.clear_queue();
                         true

@@ -3,8 +3,9 @@ use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use std::io::{BufReader, Cursor};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Audio player using rodio with sample capturing for visualization
 pub struct AudioPlayer {
@@ -13,6 +14,8 @@ pub struct AudioPlayer {
     sink: Arc<Mutex<Sink>>,
     current_duration: Arc<Mutex<Option<Duration>>>,
     sample_buffer: Arc<Mutex<Vec<f32>>>,
+    elapsed_millis: Arc<AtomicU64>,
+    start_time: Arc<Mutex<Option<Instant>>>,
 }
 
 impl AudioPlayer {
@@ -27,6 +30,8 @@ impl AudioPlayer {
             sink: Arc::new(Mutex::new(sink)),
             current_duration: Arc::new(Mutex::new(None)),
             sample_buffer: Arc::new(Mutex::new(Vec::new())),
+            elapsed_millis: Arc::new(AtomicU64::new(0)),
+            start_time: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -49,6 +54,10 @@ impl AudioPlayer {
         let duration = playback_decoder.total_duration();
         *self.current_duration.lock().unwrap() = duration;
 
+        // Reset elapsed time and set start time
+        self.elapsed_millis.store(0, Ordering::Relaxed);
+        *self.start_time.lock().unwrap() = Some(Instant::now());
+
         // Stop previous sink and replace with a new one for playback
         let sink = self.sink.lock().unwrap();
         sink.stop();
@@ -62,6 +71,7 @@ impl AudioPlayer {
         // Spawn a background thread to consume the visualization decoder at roughly
         // the audio playback rate and push mono f32 samples into sample_buffer.
         let sample_buffer = Arc::clone(&self.sample_buffer);
+        let start_time = Arc::clone(&self.start_time);
         thread::spawn(move || {
             let channels = vis_decoder.channels() as usize;
             let sample_rate = vis_decoder.sample_rate();
@@ -111,7 +121,8 @@ impl AudioPlayer {
                 // Sleep for approximately chunk_frames / sample_rate seconds
                 if sample_rate > 0 {
                     let secs = (chunk_frames as f32) / (sample_rate as f32);
-                    thread::sleep(Duration::from_secs_f32(secs));
+                    let millis = (secs * 1000.0) as u64;
+                    thread::sleep(Duration::from_millis(millis));
                 } else {
                     // fallback small sleep
                     thread::sleep(Duration::from_millis(10));
@@ -141,9 +152,29 @@ impl AudioPlayer {
     pub fn stop(&self) {
         self.sink.lock().unwrap().stop();
         self.sample_buffer.lock().unwrap().clear();
+        self.elapsed_millis.store(0, Ordering::Relaxed);
+        *self.start_time.lock().unwrap() = None;
+    }
+
+    /// Get elapsed time in milliseconds (wall-clock based)
+    pub fn get_elapsed_millis(&self) -> u64 {
+        if let Some(start) = *self.start_time.lock().unwrap() {
+            start.elapsed().as_millis() as u64
+        } else {
+            self.elapsed_millis.load(Ordering::Relaxed)
+        }
+    }
+
+    /// Set elapsed time in milliseconds (for seeking)
+    pub fn set_elapsed_millis(&self, millis: u64) {
+        // Reset start time to now minus the desired elapsed time
+        let now = Instant::now();
+        let adjusted_start = now - Duration::from_millis(millis);
+        *self.start_time.lock().unwrap() = Some(adjusted_start);
     }
 
     /// Check if player is paused
+    #[allow(dead_code)]
     pub fn is_paused(&self) -> bool {
         self.sink.lock().unwrap().is_paused()
     }
@@ -159,11 +190,13 @@ impl AudioPlayer {
     }
 
     /// Get current volume
+    #[allow(dead_code)]
     pub fn get_volume(&self) -> f32 {
         self.sink.lock().unwrap().volume()
     }
 
     /// Get current track duration
+    #[allow(dead_code)]
     pub fn get_duration(&self) -> Option<Duration> {
         *self.current_duration.lock().unwrap()
     }

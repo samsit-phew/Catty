@@ -99,12 +99,14 @@ impl Visualizer {
     }
 
     /// Set bar count
+    #[allow(dead_code)]
     pub fn set_bar_count(&mut self, count: usize) {
         self.bar_count = count;
         self.bars.resize(count, 0.0);
     }
 
     /// Set smoothing factor
+    #[allow(dead_code)]
     pub fn set_smoothing(&mut self, smoothing: f32) {
         self.smoothing = smoothing.clamp(0.0, 1.0);
     }

@@ -10,6 +10,7 @@ pub struct Config {
 #[derive(Debug, Clone)]
 pub struct ColorConfig {
     pub foreground: String,
+    #[allow(dead_code)]
     pub background: String,
     pub accent: String,
     pub visualizer_foreground: String,
@@ -27,6 +28,9 @@ pub struct KeybindConfig {
     pub volume_down: String,
     pub select: String,
     pub clear: String,
+    pub seek_forward: String,
+    pub seek_backward: String,
+    pub help: String,
 }
 
 #[derive(Debug, Clone)]
@@ -69,6 +73,9 @@ impl Default for KeybindConfig {
             volume_down: "-".to_string(),
             select: "enter".to_string(),
             clear: "c".to_string(),
+            seek_forward: "l".to_string(),
+            seek_backward: "h".to_string(),
+            help: "?".to_string(),
         }
     }
 }

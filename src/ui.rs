@@ -14,6 +14,12 @@ pub struct UI;
 impl UI {
     /// Render the entire UI
     pub fn render(f: &mut Frame, state: &mut PlayerState) {
+        // If help menu is shown, render it instead
+        if state.show_help {
+            Self::render_help(f, state);
+            return;
+        }
+
         let size = f.area();
 
         // Main layout: vertical split
@@ -21,9 +27,10 @@ impl UI {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3),      // Title bar
-                Constraint::Percentage(30), // Track list (30%)
-                Constraint::Percentage(60), // Visualizer (60% - MUCH BIGGER!)
-                Constraint::Length(5),      // Controls
+                Constraint::Percentage(25), // Track list (25%)
+                Constraint::Percentage(55), // Visualizer (55%)
+                Constraint::Length(3),      // Progress bar
+                Constraint::Length(6),      // Controls
             ])
             .split(size);
 
@@ -36,8 +43,11 @@ impl UI {
         // Render visualizer
         Self::render_visualizer(f, chunks[2], state);
 
+        // Render progress bar
+        Self::render_progress(f, chunks[3], state);
+
         // Render controls
-        Self::render_controls(f, chunks[3], state);
+        Self::render_controls(f, chunks[4], state);
     }
 
     /// Render title bar
@@ -158,15 +168,16 @@ impl UI {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(2), // Volume
-                Constraint::Length(3), // Status and controls
+                Constraint::Length(4), // Status and controls
             ])
             .split(area);
 
-        // Volume gauge
+        // Volume gauge with value display
         let volume_percent = (state.volume * 100.0) as u16;
+        let volume_label = format!(" Volume: {}% ", volume_percent);
         let volume_gauge = Gauge::default()
-            .block(Block::default().borders(Borders::ALL).title(" Volume ").border_style(Style::default().fg(accent)))
-            .gauge_style(Style::default().fg(accent))
+            .block(Block::default().borders(Borders::ALL).title(volume_label).border_style(Style::default().fg(accent)))
+            .gauge_style(Style::default().fg(accent).add_modifier(Modifier::BOLD))
             .percent(volume_percent);
         f.render_widget(volume_gauge, chunks[0]);
 
@@ -189,9 +200,13 @@ impl UI {
                 Span::raw(format!("{}: Next | ", state.config.keybinds.next)),
                 Span::raw(format!("{}: Prev | ", state.config.keybinds.previous)),
                 Span::raw(format!("{}: Shuffle({}) | ", state.config.keybinds.shuffle, shuffle_status)),
+            ]),
+            Line::from(vec![
                 Span::raw(format!("{}/-: Vol | ", state.config.keybinds.volume_up)),
                 Span::raw(format!("{}: Play | ", state.config.keybinds.select)),
                 Span::raw(format!("{}: Clear | ", state.config.keybinds.clear)),
+                Span::raw(format!("{}/{}: Seek | ", state.config.keybinds.seek_backward, state.config.keybinds.seek_forward)),
+                Span::raw(format!("{}: Help | ", state.config.keybinds.help)),
                 Span::raw(format!("{}: Quit", state.config.keybinds.quit)),
             ]),
         ];
@@ -200,5 +215,104 @@ impl UI {
             .block(Block::default().borders(Borders::ALL).title(format!(" {} ", status)).border_style(Style::default().fg(accent)));
 
         f.render_widget(controls_widget, chunks[1]);
+    }
+
+    /// Render progress bar
+    fn render_progress(f: &mut Frame, area: Rect, state: &PlayerState) {
+        let accent = Config::parse_color(&state.config.colors.accent);
+        let foreground = Config::parse_color(&state.config.colors.foreground);
+        
+        let elapsed = state.get_elapsed_seconds();
+        let duration = state.get_duration_seconds();
+        
+        let percent = if duration > 0.0 {
+            ((elapsed / duration) * 100.0) as u16
+        } else {
+            0
+        };
+        
+        // Format time display
+        let elapsed_str = Self::format_time(elapsed as u64);
+        let duration_str = Self::format_time(duration as u64);
+        let title = format!(" {}/{} ", elapsed_str, duration_str);
+        
+        let progress_gauge = Gauge::default()
+            .block(Block::default().borders(Borders::ALL).title(title).border_style(Style::default().fg(accent)))
+            .gauge_style(Style::default().fg(foreground).add_modifier(Modifier::BOLD))
+            .percent(percent);
+        
+        f.render_widget(progress_gauge, area);
+    }
+
+    /// Render help menu
+    fn render_help(f: &mut Frame, state: &PlayerState) {
+        let size = f.area();
+        let accent = Config::parse_color(&state.config.colors.accent);
+        let foreground = Config::parse_color(&state.config.colors.foreground);
+
+        let help_text = vec![
+            Line::from(vec![Span::styled("=== CATTY MUSIC PLAYER HELP ===", Style::default().fg(accent).add_modifier(Modifier::BOLD))]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.play_pause), Style::default().fg(Color::Cyan)),
+                Span::raw(" Toggle Play/Pause"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.next), Style::default().fg(Color::Cyan)),
+                Span::raw(" Next Track"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.previous), Style::default().fg(Color::Cyan)),
+                Span::raw(" Previous Track"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.shuffle), Style::default().fg(Color::Cyan)),
+                Span::raw(" Toggle Shuffle"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}/-:", state.config.keybinds.volume_up), Style::default().fg(Color::Cyan)),
+                Span::raw(" Increase/Decrease Volume"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}/{}:", state.config.keybinds.seek_backward, state.config.keybinds.seek_forward), Style::default().fg(Color::Cyan)),
+                Span::raw(" Seek Backward/Forward 10s"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.select), Style::default().fg(Color::Cyan)),
+                Span::raw(" Play Selected Track"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.clear), Style::default().fg(Color::Cyan)),
+                Span::raw(" Clear Queue"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("↑/↓:", ), Style::default().fg(Color::Cyan)),
+                Span::raw(" Navigate Track List"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.help), Style::default().fg(Color::Cyan)),
+                Span::raw(" Toggle Help"),
+            ]),
+            Line::from(vec![
+                Span::styled(format!("{}:", state.config.keybinds.quit), Style::default().fg(Color::Cyan)),
+                Span::raw(" Quit Application"),
+            ]),
+            Line::from(""),
+            Line::from(vec![Span::styled("Press ? to close help", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))]),
+        ];
+
+        let help_widget = Paragraph::new(help_text)
+            .block(Block::default().borders(Borders::ALL).title(" Help ").border_style(Style::default().fg(accent)))
+            .style(Style::default().fg(foreground));
+
+        f.render_widget(help_widget, size);
+    }
+
+
+    /// Format seconds to MM:SS
+    fn format_time(secs: u64) -> String {
+        let minutes = secs / 60;
+        let seconds = secs % 60;
+        format!("{:02}:{:02}", minutes, seconds)
     }
 }
