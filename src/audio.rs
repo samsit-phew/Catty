@@ -1,9 +1,9 @@
 use anyhow::Result;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
-use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Cursor};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
 /// Audio player using rodio with sample capturing for visualization
@@ -32,43 +32,92 @@ impl AudioPlayer {
 
     /// Play a track from file path
     pub fn play(&self, path: &Path) -> Result<()> {
-        let file = File::open(path)?;
-        let source = Decoder::new(BufReader::new(file))?;
-        
-        // Store duration if available
-        let duration = source.total_duration();
+        // Read file bytes into memory so we can create two independent decoders:
+        // one for playback and one for extracting samples for the visualizer.
+        let data = std::fs::read(path)?;
+
+        // Playback decoder (convert to f32 samples)
+        let playback_cursor = Cursor::new(data.clone());
+        let playback_decoder = Decoder::new(BufReader::new(playback_cursor))?.convert_samples::<f32>();
+
+        // Visualization decoder (separate reader so we don't consume playback samples)
+        let vis_cursor = Cursor::new(data);
+        let mut vis_decoder = Decoder::new(BufReader::new(vis_cursor))?.convert_samples::<f32>();
+
+        // Store duration if available (from playback decoder)
+        // Note: convert_samples() returns an adapter that still exposes total_duration()
+        let duration = playback_decoder.total_duration();
         *self.current_duration.lock().unwrap() = duration;
 
+        // Stop previous sink and replace with a new one for playback
         let sink = self.sink.lock().unwrap();
         sink.stop();
         drop(sink);
 
-        // Create capturing source
+        let new_sink = Sink::try_new(&self.stream_handle)?;
+        new_sink.append(playback_decoder);
+        new_sink.play();
+        *self.sink.lock().unwrap() = new_sink;
+
+        // Spawn a background thread to consume the visualization decoder at roughly
+        // the audio playback rate and push mono f32 samples into sample_buffer.
         let sample_buffer = Arc::clone(&self.sample_buffer);
-        let capturing_source = source.periodic_access(Duration::from_millis(10), move |src| {
-            if let Some(sample) = src.current_frame_len() {
-                // Capture mono samples for visualization
-                let mut buffer = sample_buffer.lock().unwrap();
-                
-                // Convert to mono and store (simple averaging if stereo)
-                for s in src.by_ref().take(sample.min(2048)) {
-                    // Convert i16 to f32 and normalize to -1.0..1.0 range
-                    buffer.push(s as f32 / i16::MAX as f32);
-                    
-                    // Keep buffer size manageable
-                    if buffer.len() > 8192 {
-                        buffer.drain(..4096);
+        thread::spawn(move || {
+            let channels = vis_decoder.channels() as usize;
+            let sample_rate = vis_decoder.sample_rate();
+
+            // We'll read in small chunks and sleep to approximate real-time
+            let chunk_frames = 1024usize; // frames per chunk (per-channel frames)
+            loop {
+                // Collect up to chunk_frames * channels samples
+                let mut tmp = Vec::with_capacity(chunk_frames * channels);
+                for _ in 0..(chunk_frames * channels) {
+                    if let Some(s) = vis_decoder.next() {
+                        tmp.push(s);
+                    } else {
+                        break;
                     }
+                }
+
+                if tmp.is_empty() {
+                    break; // finished
+                }
+
+                // Convert to mono by averaging channels if necessary
+                if channels > 1 {
+                    let frames = tmp.len() / channels;
+                    let mut mono = Vec::with_capacity(frames);
+                    for frame_idx in 0..frames {
+                        let mut sum = 0.0f32;
+                        for ch in 0..channels {
+                            sum += tmp[frame_idx * channels + ch];
+                        }
+                        mono.push(sum / channels as f32);
+                    }
+
+                    let mut buf = sample_buffer.lock().unwrap();
+                    buf.extend_from_slice(&mono);
+                    if buf.len() > 8192 {
+                        buf.drain(..4096);
+                    }
+                } else {
+                    let mut buf = sample_buffer.lock().unwrap();
+                    buf.extend_from_slice(&tmp);
+                    if buf.len() > 8192 {
+                        buf.drain(..4096);
+                    }
+                }
+
+                // Sleep for approximately chunk_frames / sample_rate seconds
+                if sample_rate > 0 {
+                    let secs = (chunk_frames as f32) / (sample_rate as f32);
+                    thread::sleep(Duration::from_secs_f32(secs));
+                } else {
+                    // fallback small sleep
+                    thread::sleep(Duration::from_millis(10));
                 }
             }
         });
-
-        // Create new sink for new track
-        let new_sink = Sink::try_new(&self.stream_handle)?;
-        new_sink.append(capturing_source);
-        new_sink.play();
-        
-        *self.sink.lock().unwrap() = new_sink;
 
         Ok(())
     }
