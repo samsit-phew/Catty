@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use ratatui::style::Color;
+use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,24 +96,43 @@ impl Default for VisualizerConfig {
 
 impl Config {
     pub fn load() -> Self {
-        let path = "config.toml";
+        // Expand ~ to home directory
+        let path_str = "~/.config/catty-player/config.toml";
+        let path_expanded = shellexpand::tilde(path_str);
+        let path = Path::new(&*path_expanded);
 
-        if Path::new(path).exists() {
-            let content = fs::read_to_string(path).unwrap_or_default();
-
-            if let Ok(cfg) = toml::from_str::<Config>(&content) {
-                return cfg;
+        // Try loading existing config
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(path) {
+                if let Ok(cfg) = toml::from_str::<Config>(&content) {
+                    return cfg;
+                } else {
+                    eprintln!(
+                        "config.toml found but invalid. Regenerating with defaults in {}",
+                        path_str
+                    );
+                }
             } else {
-                eprintln!("config.toml found but invalid. Regenerating with defaults.");
+                eprintln!("Failed to read config.toml. Regenerating with defaults.");
             }
         }
 
+        // Create default config
         let default = Config::default();
-        let serialized = toml::to_string_pretty(&default)
-            .expect("Failed to serialize default config");
+        let serialized =
+            toml::to_string_pretty(&default).expect("Failed to serialize default config");
 
-        fs::write(path, serialized)
-            .expect("Failed to write default config.toml");
+        // Ensure parent directory exists
+        if let Some(parent) = path.parent() {
+            if let Err(e) = fs::create_dir_all(parent) {
+                eprintln!("Failed to create config directory: {}", e);
+            }
+        }
+
+        // Write default config (ignore error if it fails)
+        if let Err(e) = fs::write(path, serialized) {
+            eprintln!("Failed to write default config.toml: {}", e);
+        }
 
         default
     }
@@ -151,4 +170,3 @@ impl Config {
         }
     }
 }
-
