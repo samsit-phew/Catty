@@ -42,6 +42,8 @@ pub struct AudioPlayer {
     sample_buffer: Arc<Mutex<Vec<f32>>>,
     elapsed_millis: Arc<AtomicU64>,
     start_time: Arc<Mutex<Option<Instant>>>,
+    #[allow(dead_code)]
+    pause_elapsed: Arc<AtomicU64>,
 }
 
 impl AudioPlayer {
@@ -58,6 +60,7 @@ impl AudioPlayer {
             sample_buffer: Arc::new(Mutex::new(Vec::new())),
             elapsed_millis: Arc::new(AtomicU64::new(0)),
             start_time: Arc::new(Mutex::new(None)),
+            pause_elapsed: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -97,7 +100,6 @@ impl AudioPlayer {
         // Spawn a background thread to consume the visualization decoder at roughly
         // the audio playback rate and push mono f32 samples into sample_buffer.
         let sample_buffer = Arc::clone(&self.sample_buffer);
-        let start_time = Arc::clone(&self.start_time);
         thread::spawn(move || {
             let channels = vis_decoder.channels() as usize;
             let sample_rate = vis_decoder.sample_rate();
@@ -166,11 +168,19 @@ impl AudioPlayer {
 
     /// Pause playback
     pub fn pause(&self) {
+        // Capture the current elapsed time before pausing
+        let elapsed = self.get_elapsed_millis();
+        self.pause_elapsed.store(elapsed, Ordering::Relaxed);
         self.sink.lock().unwrap().pause();
     }
 
     /// Resume playback
     pub fn resume(&self) {
+        // Resume from the frozen position
+        let frozen_elapsed = self.pause_elapsed.load(Ordering::Relaxed);
+        let now = Instant::now();
+        let adjusted_start = now - Duration::from_millis(frozen_elapsed);
+        *self.start_time.lock().unwrap() = Some(adjusted_start);
         self.sink.lock().unwrap().play();
     }
 
@@ -182,8 +192,14 @@ impl AudioPlayer {
         *self.start_time.lock().unwrap() = None;
     }
 
-    /// Get elapsed time in milliseconds (wall-clock based)
+    /// Get elapsed time in milliseconds (wall-clock based, stops when paused)
     pub fn get_elapsed_millis(&self) -> u64 {
+        // If paused, return the frozen elapsed time
+        if self.sink.lock().unwrap().is_paused() {
+            return self.pause_elapsed.load(Ordering::Relaxed);
+        }
+        
+        // Otherwise calculate from start time
         if let Some(start) = *self.start_time.lock().unwrap() {
             start.elapsed().as_millis() as u64
         } else {
