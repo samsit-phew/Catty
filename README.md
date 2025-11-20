@@ -4,8 +4,13 @@ Catty is a compact terminal music player with a visualizer, playlist, and an ext
 
 Quickstart
 
- Build and run: ```git clone http://github.com/samsit-phew/Catty.git ||cd Catty || cargo run --release ```
-OR run ``` cargo install catty-player ```
+ #Build and run:
+ ```
+ git clone http://github.com/samsit-phew/Catty.git ||cd Catty || cargo run --release 
+ ```
+OR run 
+``` cargo install catty-player 
+```
 
 
 Customization
