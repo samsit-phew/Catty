@@ -18,4 +18,4 @@ Customization
 - Colors accept named terminal colors or hex `#RRGGBB` in the config.
 - config file `~/.config/catty-player/config.toml`
 <br> 
-                                    <center><h1><i>samsit-san</i></h1></center>
+                                    <center><h1>by <i>samsit-san</i></h1></center>
