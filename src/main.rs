@@ -1,3 +1,64 @@
+//! # Catty Player
+//!
+//! Catty is a terminal music player with customizable colors, keybinds, and a visualizer.
+//!
+//! ## Configuration
+//!
+//! Catty reads a `config.toml` file in the same folder as the executable.
+//! If the file is missing or invalid, Catty will create one with default values.
+//!
+//! ### Example `config.toml`
+//!
+//! ```toml
+//! [colors]
+//! foreground = "white"
+//! background = "black"
+//! accent = "cyan"
+//! visualizer_foreground = "LightBlue"
+//! visualizer_background = "black"
+//!
+//! [keybinds]
+//! quit = "q"
+//! play_pause = "space"
+//! next = "n"
+//! previous = "p"
+//! shuffle = "s"
+//! volume_up = "+"
+//! volume_down = "-"
+//! select = "enter"
+//! clear = "c"
+//! seek_forward = "l"
+//! seek_backward = "h"
+//! help = "?"
+//!
+//! [visualizer]
+//! bar_count = 50
+//! smoothing = 0.7
+//! ```
+//!
+//! ### Editing the Configuration
+//!
+//! - **Colors**: Use standard color names or hex codes (e.g., `"red"` or `"#FF0000"`).  
+//! - **Keybinds**: Use strings like `"space"`, `"enter"`, `"q"`.  
+//! - **Visualizer**: Adjust `bar_count` and `smoothing`.  
+//!
+//! ### Usage
+//!
+//! ```bash
+//! # Run the player
+//! catty-player
+//! ```
+//! The program will automatically load `config.toml` or generate defaults if missing.
+
+
+
+
+
+
+
+
+
+
 mod audio;
 mod config;
 mod database;

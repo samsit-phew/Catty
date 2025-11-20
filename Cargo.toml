@@ -1,8 +1,11 @@
 [package]
-name = "catty"
-version = "0.1.0"
+name = "catty-player"
+version = "0.1.2"
 edition = "2021"
-authors = ["samsit-phew"]
+authors = ["samsit-phew <samsitkarki@gmail.com>"]
+description = "music player in your terminal"
+repository = "https://github.com/samsit-phew/Catty"
+documentation = "https://docs.rs/catty-player"
 
 [dependencies]
 crossterm = "0.28"

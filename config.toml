@@ -2,7 +2,7 @@
 foreground = "white"
 background = "black"
 accent = "cyan"
-visualizer_foreground = "LightBlue"
+visualizer_foreground = "Lightblue"
 visualizer_background = "black"
 
 [keybinds]
