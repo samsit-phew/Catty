@@ -9,7 +9,8 @@ Quickstart
  git clone http://github.com/samsit-phew/Catty.git ||cd Catty || cargo run --release 
  ```
 OR run 
-``` cargo install catty-player 
+```
+cargo install catty-player 
 ```
 
 
