@@ -1,23 +1,24 @@
+use serde::{Serialize, Deserialize};
 use ratatui::style::Color;
+use std::{fs, path::Path};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub colors: ColorConfig,
     pub keybinds: KeybindConfig,
     pub visualizer: VisualizerConfig,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorConfig {
     pub foreground: String,
-    #[allow(dead_code)]
     pub background: String,
     pub accent: String,
     pub visualizer_foreground: String,
     pub visualizer_background: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeybindConfig {
     pub quit: String,
     pub play_pause: String,
@@ -33,11 +34,13 @@ pub struct KeybindConfig {
     pub help: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VisualizerConfig {
     pub bar_count: usize,
     pub smoothing: f32,
 }
+
+/* ---------------------- Default Implementations ---------------------- */
 
 impl Default for Config {
     fn default() -> Self {
@@ -52,11 +55,11 @@ impl Default for Config {
 impl Default for ColorConfig {
     fn default() -> Self {
         Self {
-            foreground: "white".to_string(),
-            background: "black".to_string(),
-            accent: "cyan".to_string(),
-            visualizer_foreground: "LightBlue".to_string(),
-            visualizer_background: "black".to_string(),
+            foreground: "white".into(),
+            background: "black".into(),
+            accent: "cyan".into(),
+            visualizer_foreground: "LightBlue".into(),
+            visualizer_background: "black".into(),
         }
     }
 }
@@ -64,18 +67,18 @@ impl Default for ColorConfig {
 impl Default for KeybindConfig {
     fn default() -> Self {
         Self {
-            quit: "q".to_string(),
-            play_pause: "space".to_string(),
-            next: "n".to_string(),
-            previous: "p".to_string(),
-            shuffle: "s".to_string(),
-            volume_up: "+".to_string(),
-            volume_down: "-".to_string(),
-            select: "enter".to_string(),
-            clear: "c".to_string(),
-            seek_forward: "l".to_string(),
-            seek_backward: "h".to_string(),
-            help: "?".to_string(),
+            quit: "q".into(),
+            play_pause: "space".into(),
+            next: "n".into(),
+            previous: "p".into(),
+            shuffle: "s".into(),
+            volume_up: "+".into(),
+            volume_down: "-".into(),
+            select: "enter".into(),
+            clear: "c".into(),
+            seek_forward: "l".into(),
+            seek_backward: "h".into(),
+            help: "?".into(),
         }
     }
 }
@@ -89,9 +92,30 @@ impl Default for VisualizerConfig {
     }
 }
 
+/* ---------------------- Config Load and Create ---------------------- */
+
 impl Config {
     pub fn load() -> Self {
-        Config::default()
+        let path = "config.toml";
+
+        if Path::new(path).exists() {
+            let content = fs::read_to_string(path).unwrap_or_default();
+
+            if let Ok(cfg) = toml::from_str::<Config>(&content) {
+                return cfg;
+            } else {
+                eprintln!("config.toml found but invalid. Regenerating with defaults.");
+            }
+        }
+
+        let default = Config::default();
+        let serialized = toml::to_string_pretty(&default)
+            .expect("Failed to serialize default config");
+
+        fs::write(path, serialized)
+            .expect("Failed to write default config.toml");
+
+        default
     }
 
     pub fn parse_color(color_str: &str) -> Color {
@@ -127,3 +151,4 @@ impl Config {
         }
     }
 }
+
