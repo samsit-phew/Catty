@@ -17,3 +17,4 @@ cargo install catty-player
 Customization
 - Colors accept named terminal colors or hex `#RRGGBB` in the config.
 - config file `~/.config/catty-player/config.toml` 
+                                    <i>samsit-san</i>
