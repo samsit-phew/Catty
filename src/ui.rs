@@ -172,8 +172,9 @@ impl UI {
             ])
             .split(area);
 
-        // Volume gauge with value display
-        let volume_percent = (state.volume * 100.0) as u16;
+        // Volume gauge with value display - read actual system volume from PulseAudio
+        let system_volume = crate::audio::get_system_volume();
+        let volume_percent = (system_volume * 100.0) as u16;
         let volume_label = format!(" Volume: {}% ", volume_percent);
         let volume_gauge = Gauge::default()
             .block(Block::default().borders(Borders::ALL).title(volume_label).border_style(Style::default().fg(accent)))
@@ -207,7 +208,7 @@ impl UI {
                 Span::raw(format!("{}: Clear | ", state.config.keybinds.clear)),
                 Span::raw(format!("{}/{}: Seek | ", state.config.keybinds.seek_backward, state.config.keybinds.seek_forward)),
                 Span::raw(format!("{}: Help | ", state.config.keybinds.help)),
-                Span::raw(format!("{}: Quit", state.config.keybinds.quit)),
+                Span::raw(format!("{}: Quit | \n *catty music player -samsit02", state.config.keybinds.quit)),
             ]),
         ];
 
@@ -299,6 +300,8 @@ impl UI {
             ]),
             Line::from(""),
             Line::from(vec![Span::styled("Press ? to close help", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))]),
+            Line::from(""),
+            Line::from(vec![Span::styled("🎵 Catty — by samsit-phew", Style::default().fg(accent).add_modifier(Modifier::ITALIC))]),
         ];
 
         let help_widget = Paragraph::new(help_text)

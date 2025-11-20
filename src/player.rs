@@ -31,6 +31,9 @@ impl PlayerState {
             config.visualizer.smoothing
         );
         
+        let initial_volume = 0.2; // Start at 20%
+        audio.set_volume(initial_volume);
+        
         Self {
             database,
             audio,
@@ -40,7 +43,7 @@ impl PlayerState {
             scroll_offset: 0,
             is_playing: false,
             shuffle: false,
-            volume: 0.5,
+            volume: initial_volume,
             visualizer,
             config,
             needs_redraw: true,

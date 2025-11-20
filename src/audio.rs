@@ -7,6 +7,32 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
+/// Get system volume from PulseAudio using pactl (0.0 to 1.0)
+pub fn get_system_volume() -> f32 {
+    use std::process::Command;
+
+    match Command::new("pactl")
+        .args(&["get-sink-volume", "@DEFAULT_SINK@"])
+        .output()
+    {
+        Ok(output) => {
+            if let Ok(s) = String::from_utf8(output.stdout) {
+                // Output format: "Volume: front-left: 21870 / 33% / 0.13 dB   front-right: 21870 / 33% / 0.13 dB"
+                // Extract percentage value
+                if let Some(pct_str) = s.split('%').next().and_then(|p| p.split_whitespace().last()) {
+                    if let Ok(pct) = pct_str.parse::<f32>() {
+                        return (pct / 100.0).min(1.0).max(0.0);
+                    }
+                }
+            }
+        }
+        Err(_) => {}
+    }
+
+    1.0 // Default to 100% if pactl unavailable
+}
+
+
 /// Audio player using rodio with sample capturing for visualization
 pub struct AudioPlayer {
     _stream: OutputStream,
