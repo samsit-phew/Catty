@@ -7,6 +7,7 @@ pub struct Config {
     pub colors: ColorConfig,
     pub keybinds: KeybindConfig,
     pub visualizer: VisualizerConfig,
+    pub watermark: WatermarkConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +17,10 @@ pub struct ColorConfig {
     pub accent: String,
     pub visualizer_foreground: String,
     pub visualizer_background: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatermarkConfig {
+    pub water_mark: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +50,7 @@ pub struct VisualizerConfig {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            watermark: WatermarkConfig::default(),
             colors: ColorConfig::default(),
             keybinds: KeybindConfig::default(),
             visualizer: VisualizerConfig::default(),
@@ -61,6 +67,11 @@ impl Default for ColorConfig {
             visualizer_foreground: "LightBlue".into(),
             visualizer_background: "black".into(),
         }
+    }
+}
+impl Default for WatermarkConfig {
+    fn default() -> Self {
+        Self { water_mark: true }
     }
 }
 
