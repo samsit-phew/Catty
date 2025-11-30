@@ -1,6 +1,6 @@
 [package]
 name = "catty-player"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["samsit-phew <samsitkarki@gmail.com>"]
 description= "audio player in your terminal"
